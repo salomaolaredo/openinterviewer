@@ -1,9 +1,7 @@
-// Session token utilities for researcher authentication
-// Uses signed JWTs to prevent forgery
-// Supports both standalone (password) and hosted (OAuth with researcherId) modes
+// Session token utilities for researcher authentication (standalone only).
+// Password-based admin login; participant tokens via JWT.
 
 import * as jose from 'jose';
-import { isHostedMode } from './mode';
 
 const SESSION_COOKIE_NAME = 'research-auth';
 const SESSION_DURATION = 60 * 60 * 24 * 7; // 7 days in seconds
@@ -16,27 +14,21 @@ function getSecret(): Uint8Array {
     throw new Error('SESSION_SECRET or ADMIN_PASSWORD environment variable is required');
   }
 
-  // Warn if using ADMIN_PASSWORD as session secret (less secure)
   if (!process.env.SESSION_SECRET && process.env.NODE_ENV === 'production') {
     console.warn(
       '[Security] SESSION_SECRET not set - falling back to ADMIN_PASSWORD. ' +
-      'For better security, set a dedicated SESSION_SECRET environment variable.'
+        'For better security, set a dedicated SESSION_SECRET environment variable.'
     );
   }
 
   return new TextEncoder().encode(secret);
 }
 
-// Create a signed session token
-// In hosted mode, embeds researcherId for multi-tenant context resolution
-export async function createSessionToken(researcherId?: string): Promise<string> {
+// Create a signed session token.
+export async function createSessionToken(): Promise<string> {
   const secret = getSecret();
 
   const payload: Record<string, unknown> = { type: 'session' };
-  if (isHostedMode() && researcherId) {
-    payload.mode = 'hosted';
-    payload.researcherId = researcherId;
-  }
 
   const token = await new jose.SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
@@ -50,11 +42,9 @@ export async function createSessionToken(researcherId?: string): Promise<string>
 // Session verification result
 export interface SessionVerifyResult {
   valid: boolean;
-  researcherId?: string; // Present in hosted mode
 }
 
-// Verify a session token
-// Returns validity and researcherId (hosted mode only)
+// Verify a session token.
 export async function verifySessionToken(token: string): Promise<SessionVerifyResult> {
   if (!token) {
     return { valid: false };
@@ -64,22 +54,12 @@ export async function verifySessionToken(token: string): Promise<SessionVerifyRe
     const secret = getSecret();
     const { payload } = await jose.jwtVerify(token, secret);
 
-    // Check that it's a session token (not a participant token)
     if (payload.type !== 'session') {
       return { valid: false };
     }
 
-    // In hosted mode, extract researcherId
-    if (isHostedMode()) {
-      if (!payload.researcherId) {
-        return { valid: false };
-      }
-      return { valid: true, researcherId: payload.researcherId as string };
-    }
-
     return { valid: true };
   } catch {
-    // Token invalid, expired, or tampered with
     return { valid: false };
   }
 }
@@ -89,7 +69,7 @@ export function getSessionCookieOptions() {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict' as const, // Strict - no cross-site embedding needed
+    sameSite: 'strict' as const,
     maxAge: SESSION_DURATION,
     path: '/',
   };
@@ -99,28 +79,25 @@ export { SESSION_COOKIE_NAME };
 
 // === Participant Token Verification ===
 
-// Get participant token secret (separate from session secret)
 function getParticipantSecret(): Uint8Array | null {
   const secret = process.env.PARTICIPANT_TOKEN_SECRET || process.env.ADMIN_PASSWORD;
   if (!secret) return null;
 
-  // Warn if using ADMIN_PASSWORD as participant token secret (less secure)
   if (!process.env.PARTICIPANT_TOKEN_SECRET && process.env.NODE_ENV === 'production') {
     console.warn(
       '[Security] PARTICIPANT_TOKEN_SECRET not set - falling back to ADMIN_PASSWORD. ' +
-      'For better security, set a dedicated PARTICIPANT_TOKEN_SECRET environment variable.'
+        'For better security, set a dedicated PARTICIPANT_TOKEN_SECRET environment variable.'
     );
   }
 
   return new TextEncoder().encode(secret);
 }
 
-// Parse cookies from request headers
 function getCookieValue(request: Request, name: string): string | null {
   const cookieHeader = request.headers.get('Cookie');
   if (!cookieHeader) return null;
 
-  const cookies = cookieHeader.split(';').map(c => c.trim());
+  const cookies = cookieHeader.split(';').map((c) => c.trim());
   for (const cookie of cookies) {
     const [key, ...valueParts] = cookie.split('=');
     if (key === name) {
@@ -130,7 +107,6 @@ function getCookieValue(request: Request, name: string): string | null {
   return null;
 }
 
-// Check if request has valid admin session cookie
 async function hasValidAdminSession(request: Request): Promise<boolean> {
   const sessionToken = getCookieValue(request, SESSION_COOKIE_NAME);
   if (!sessionToken) return false;
@@ -142,17 +118,13 @@ async function hasValidAdminSession(request: Request): Promise<boolean> {
 export interface ParticipantVerifyResult {
   valid: boolean;
   studyId?: string;
-  researcherId?: string; // Present in hosted mode tokens
   isAdmin?: boolean;
   error?: string;
 }
 
-// Verify participant token from Authorization header
-// Also accepts valid admin session cookies (for researcher preview)
-// Returns studyId if from participant token, undefined if from admin session
-// Checks if links are enabled for the study (unless admin)
+// Verify participant token from Authorization header.
+// Also accepts valid admin session cookies (for researcher preview).
 export async function verifyParticipantToken(request: Request): Promise<ParticipantVerifyResult> {
-  // First, check for participant token in Authorization header
   const authHeader = request.headers.get('Authorization');
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
@@ -162,29 +134,24 @@ export async function verifyParticipantToken(request: Request): Promise<Particip
       try {
         const { payload } = await jose.jwtVerify(token, secret);
 
-        // Reject session tokens used as participant tokens (token-type confusion)
         if (payload.type === 'session') {
           // Fall through to admin session check
         } else {
           const studyId = payload.studyId as string;
-          const researcherId = payload.researcherId as string | undefined;
-
-          // Note: "links disabled" check moved to getParticipantRequestContext()
-          // where the correct per-researcher KV client is available
-
-          return { valid: true, studyId, researcherId };
+          return { valid: true, studyId };
         }
       } catch (error) {
-        // Check if it's an expiration error
         if (error instanceof jose.errors.JWTExpired) {
-          return { valid: false, error: 'This link has expired. Please request a new participant link from the researcher.' };
+          return {
+            valid: false,
+            error:
+              'This link has expired. Please request a new participant link from the researcher.',
+          };
         }
-        // Token invalid, fall through to check admin session
       }
     }
   }
 
-  // No valid participant token - check for admin session (researcher preview)
   const isAdmin = await hasValidAdminSession(request);
   if (isAdmin) {
     return { valid: true, isAdmin: true };

@@ -9,7 +9,6 @@ import { NextResponse } from 'next/server';
 import * as jose from 'jose';
 import { StudyConfig, ParticipantToken, LinkExpirationOption } from '@/types';
 import { getRequestContext } from '@/lib/researcherContext';
-import { isHostedMode } from '@/lib/mode';
 
 // Convert link expiration option to jose expiration string
 const getExpirationTime = (option?: LinkExpirationOption): string | null => {
@@ -35,7 +34,7 @@ const getSecret = () => {
 
 export async function POST(request: Request) {
   try {
-    const { authorized, context, researcherId, error } = await getRequestContext();
+    const { authorized, context, error } = await getRequestContext();
     if (!authorized || !context) {
       return NextResponse.json(
         { error: error || 'Admin authentication required to generate participant links' },
@@ -75,8 +74,6 @@ export async function POST(request: Request) {
       createdAt: Date.now(),
       // Store expiration info for display purposes
       ...(expirationTime && { expiresAt: Date.now() + (expirationTime === '7d' ? 7 : expirationTime === '30d' ? 30 : 90) * 24 * 60 * 60 * 1000 }),
-      // In hosted mode, embed researcherId so participant requests can resolve the correct researcher
-      ...(isHostedMode() && researcherId && { researcherId }),
     };
 
     // Sign the token (with or without expiration)
@@ -140,12 +137,9 @@ export async function GET(request: Request) {
     // Verify and decode the token (jose.jwtVerify checks expiration automatically)
     const { payload } = await jose.jwtVerify(token, secret);
 
-    // Strip internal fields not needed by participants
-    const { researcherId: _rid, ...safePayload } = payload as unknown as ParticipantToken & { researcherId?: string };
-
     return NextResponse.json({
       valid: true,
-      data: safePayload as ParticipantToken
+      data: payload as unknown as ParticipantToken
     });
   } catch (error) {
     // Handle expired tokens specifically

@@ -8,8 +8,6 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { getStudy, saveStudy, deleteStudy, isKVAvailable } from '@/lib/kv';
 import { getRequestContext } from '@/lib/researcherContext';
-import { deleteStudyOwnership } from '@/lib/platformDb';
-import { isHostedMode } from '@/lib/mode';
 import { StudyConfig } from '@/types';
 
 // GET /api/studies/[id] - Get single study
@@ -25,7 +23,7 @@ export async function GET(
 
     const { id } = await params;
 
-    const kvAvailable = await isKVAvailable(context.kvClient);
+    const kvAvailable = await isKVAvailable();
     if (!kvAvailable) {
       return NextResponse.json(
         { error: 'Storage not configured' },
@@ -33,7 +31,7 @@ export async function GET(
       );
     }
 
-    const study = await getStudy(id, context.kvClient);
+    const study = await getStudy(id);
     if (!study) {
       return NextResponse.json(
         { error: 'Study not found' },
@@ -64,7 +62,7 @@ export async function PUT(
 
     const { id } = await params;
 
-    const kvAvailable = await isKVAvailable(context.kvClient);
+    const kvAvailable = await isKVAvailable();
     if (!kvAvailable) {
       return NextResponse.json(
         { error: 'Storage not configured' },
@@ -72,7 +70,7 @@ export async function PUT(
       );
     }
 
-    const study = await getStudy(id, context.kvClient);
+    const study = await getStudy(id);
     if (!study) {
       return NextResponse.json(
         { error: 'Study not found' },
@@ -83,7 +81,7 @@ export async function PUT(
     const body = await request.json();
     const { config, confirmed } = body as {
       config: Partial<StudyConfig>;
-      confirmed?: boolean;  // User acknowledged the warning
+      confirmed?: boolean;
     };
 
     // Soft lock: warn if study has interviews, allow if user confirms
@@ -102,15 +100,13 @@ export async function PUT(
       );
     }
 
-    // Update config while preserving ID and createdAt
     const updatedConfig: StudyConfig = {
       ...study.config,
       ...config,
-      id: study.id, // Preserve original ID
-      createdAt: study.config.createdAt // Preserve original creation time
+      id: study.id,
+      createdAt: study.config.createdAt
     };
 
-    // Validate required fields still exist after merge
     if (!updatedConfig.name || !updatedConfig.researchQuestion) {
       return NextResponse.json(
         { error: 'Missing required fields: name and researchQuestion are required' },
@@ -130,7 +126,7 @@ export async function PUT(
       updatedAt: Date.now()
     };
 
-    const success = await saveStudy(updatedStudy, context.kvClient);
+    const success = await saveStudy(updatedStudy);
     if (!success) {
       return NextResponse.json(
         { error: 'Failed to update study' },
@@ -157,14 +153,14 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { authorized, context, researcherId, error } = await getRequestContext();
+    const { authorized, context, error } = await getRequestContext();
     if (!authorized || !context) {
       return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
 
-    const kvAvailable = await isKVAvailable(context.kvClient);
+    const kvAvailable = await isKVAvailable();
     if (!kvAvailable) {
       return NextResponse.json(
         { error: 'Storage not configured' },
@@ -172,7 +168,7 @@ export async function DELETE(
       );
     }
 
-    const study = await getStudy(id, context.kvClient);
+    const study = await getStudy(id);
     if (!study) {
       return NextResponse.json(
         { error: 'Study not found' },
@@ -180,21 +176,12 @@ export async function DELETE(
       );
     }
 
-    const result = await deleteStudy(id, context.kvClient);
+    const result = await deleteStudy(id);
     if (!result.success) {
       return NextResponse.json(
         { error: result.error || 'Failed to delete study' },
         { status: 400 }
       );
-    }
-
-    // In hosted mode, clean up study ownership record
-    if (isHostedMode() && researcherId) {
-      try {
-        await deleteStudyOwnership(id);
-      } catch (err) {
-        console.warn('Failed to delete study ownership:', err);
-      }
     }
 
     return NextResponse.json({

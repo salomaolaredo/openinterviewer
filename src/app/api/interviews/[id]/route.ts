@@ -26,7 +26,7 @@ export async function GET(
       );
     }
 
-    const interview = await getInterview(id, context.kvClient);
+    const interview = await getInterview(id);
 
     if (!interview) {
       return NextResponse.json(

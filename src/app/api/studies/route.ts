@@ -7,8 +7,6 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { getAllStudies, saveStudy, isKVAvailable } from '@/lib/kv';
 import { getRequestContext } from '@/lib/researcherContext';
-import { registerStudyOwnership } from '@/lib/platformDb';
-import { isHostedMode } from '@/lib/mode';
 import { StudyConfig, StoredStudy } from '@/types';
 import { randomUUID } from 'crypto';
 
@@ -20,15 +18,15 @@ export async function GET() {
       return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
     }
 
-    const kvAvailable = await isKVAvailable(context.kvClient);
+    const kvAvailable = await isKVAvailable();
     if (!kvAvailable) {
       return NextResponse.json({
         studies: [],
-        warning: 'Storage not configured. Connect Vercel KV to enable persistence.'
+        warning: 'Storage not configured. Database unreachable.'
       });
     }
 
-    const studies = await getAllStudies(context.kvClient);
+    const studies = await getAllStudies();
     return NextResponse.json({ studies });
   } catch (error) {
     console.error('Studies API error:', error);
@@ -42,15 +40,15 @@ export async function GET() {
 // POST /api/studies - Create new study
 export async function POST(request: Request) {
   try {
-    const { authorized, context, researcherId, error } = await getRequestContext();
+    const { authorized, context, error } = await getRequestContext();
     if (!authorized || !context) {
       return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
     }
 
-    const kvAvailable = await isKVAvailable(context.kvClient);
+    const kvAvailable = await isKVAvailable();
     if (!kvAvailable) {
       return NextResponse.json(
-        { error: 'Storage not configured. Connect Vercel KV to enable persistence.' },
+        { error: 'Storage not configured. Database unreachable.' },
         { status: 503 }
       );
     }
@@ -93,21 +91,12 @@ export async function POST(request: Request) {
       isLocked: false
     };
 
-    const success = await saveStudy(storedStudy, context.kvClient);
+    const success = await saveStudy(storedStudy);
     if (!success) {
       return NextResponse.json(
         { error: 'Failed to save study' },
         { status: 500 }
       );
-    }
-
-    // In hosted mode, register study ownership for cross-tenant lookup
-    if (isHostedMode() && researcherId) {
-      try {
-        await registerStudyOwnership(studyId, researcherId);
-      } catch (err) {
-        console.warn('Failed to register study ownership:', err);
-      }
     }
 
     return NextResponse.json({

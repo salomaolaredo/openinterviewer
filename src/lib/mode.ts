@@ -1,18 +1,17 @@
-// Deployment mode detection
-// Controls whether the app runs in single-tenant (standalone) or multi-tenant (hosted) mode
+// Deployment mode detection.
+// Hosted mode has been removed — the app is always standalone.
+// These helpers remain as constants so existing imports continue to type-check.
 
-export type DeploymentMode = 'standalone' | 'hosted';
+export type DeploymentMode = 'standalone';
 
 export function getDeploymentMode(): DeploymentMode {
-  const mode = process.env.DEPLOYMENT_MODE?.toLowerCase();
-  if (mode === 'hosted') return 'hosted';
   return 'standalone';
 }
 
 export function isHostedMode(): boolean {
-  return getDeploymentMode() === 'hosted';
+  return false;
 }
 
 export function isStandaloneMode(): boolean {
-  return getDeploymentMode() === 'standalone';
+  return true;
 }

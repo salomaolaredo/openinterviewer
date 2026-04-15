@@ -79,7 +79,7 @@ export async function GET() {
       return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
     }
 
-    const kvAvailable = await isKVAvailable(context.kvClient);
+    const kvAvailable = await isKVAvailable();
     if (!kvAvailable) {
       return NextResponse.json(
         { error: 'Storage not configured' },
@@ -88,7 +88,7 @@ export async function GET() {
     }
 
     // Get all interviews
-    const interviews = await getAllInterviews(context.kvClient);
+    const interviews = await getAllInterviews();
 
     if (interviews.length === 0) {
       return NextResponse.json(
