@@ -159,3 +159,42 @@ export async function verifyParticipantToken(request: Request): Promise<Particip
 
   return { valid: false };
 }
+
+// Decode and verify a raw participant token string (no Request wrapper).
+// Used by server components that receive the token via path params.
+// Returns the full decoded payload on success, or an error reason on failure.
+export interface DecodedParticipantToken {
+  valid: boolean;
+  payload?: import('jose').JWTPayload & {
+    studyId: string;
+    studyConfig: import('@/types').StudyConfig;
+    createdAt: number;
+    expiresAt?: number;
+  };
+  error?: 'expired' | 'invalid' | 'misconfigured';
+}
+
+export async function decodeParticipantTokenString(
+  token: string
+): Promise<DecodedParticipantToken> {
+  if (!token) return { valid: false, error: 'invalid' };
+
+  const secret = getParticipantSecret();
+  if (!secret) return { valid: false, error: 'misconfigured' };
+
+  try {
+    const { payload } = await jose.jwtVerify(token, secret);
+    if (!payload || typeof payload !== 'object' || !('studyConfig' in payload)) {
+      return { valid: false, error: 'invalid' };
+    }
+    return {
+      valid: true,
+      payload: payload as DecodedParticipantToken['payload'],
+    };
+  } catch (error) {
+    if (error instanceof jose.errors.JWTExpired) {
+      return { valid: false, error: 'expired' };
+    }
+    return { valid: false, error: 'invalid' };
+  }
+}

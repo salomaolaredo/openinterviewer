@@ -226,6 +226,11 @@ function reassembleStudy(row: typeof schema.studies.$inferSelect): StoredStudy {
     updatedAt: row.updatedAt.getTime(),
     interviewCount: row.interviewCount,
     isLocked: row.isLocked,
+    // v2 (Heard): surface the new metadata columns so the Synthesizer,
+    // signals loop, and the researcher dashboard can read them back.
+    originalQuestion: row.originalQuestion ?? null,
+    creationThread: row.creationThread ?? null,
+    aggregateSynthesis: row.aggregateSynthesis ?? null,
   };
 }
 

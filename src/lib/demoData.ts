@@ -18,6 +18,39 @@ import {
 
 const DEMO_STUDY_ID = 'demo-study-adaptive-self';
 
+// v2 (Heard): the researcher's original natural-language goal that produced
+// this study. Echoed verbatim in the synthesis report opener.
+export const DEMO_ORIGINAL_QUESTION =
+  "I want to understand how knowledge workers are actually living with AI tools day to day — not the hype, not the doom. What's shifting in how they see themselves and their work?";
+
+// v2 (Heard): the back-and-forth between the researcher and the Question Maker
+// when the study was created. Used by the Listener and Synthesizer for intent
+// context. Timestamps anchored ~7 days ago to match DEMO_STUDY_CONFIG.createdAt.
+export const DEMO_CREATION_THREAD: Array<{
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+}> = [
+  {
+    role: 'user',
+    content:
+      "I want to understand how knowledge workers are actually living with AI tools day to day — not the hype, not the doom. What's shifting in how they see themselves and their work?",
+    timestamp: Date.now() - 7 * 24 * 60 * 60 * 1000,
+  },
+  {
+    role: 'assistant',
+    content:
+      "Got it. Are you focused on a specific role or industry, or do you want to keep it broad across knowledge work?",
+    timestamp: Date.now() - 7 * 24 * 60 * 60 * 1000 + 90 * 1000,
+  },
+  {
+    role: 'user',
+    content:
+      "Broad — I want diverse perspectives. A PM, a designer, a writer or content person. People who've been at it long enough to feel the shift, not first-jobbers.",
+    timestamp: Date.now() - 7 * 24 * 60 * 60 * 1000 + 180 * 1000,
+  },
+];
+
 export const DEMO_STUDY_CONFIG: StudyConfig = {
   id: DEMO_STUDY_ID,
   name: 'The Adaptive Self: Professional Identity in the Age of AI',
@@ -45,7 +78,7 @@ export const DEMO_STUDY_CONFIG: StudyConfig = {
     { id: 'years_experience', label: 'Years in Role', extractionHint: 'How long they have been in their current role or profession', required: false }
   ],
   aiBehavior: 'standard',
-  aiProvider: 'gemini',
+  aiProvider: 'claude',
   enableReasoning: true,
   consentText: 'This interview is part of a research study on professional adaptation to AI tools. Your responses will be anonymized and used for research purposes only. The interview takes approximately 15-20 minutes. You may skip any question or end the interview at any time.',
   createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000 // 7 days ago
@@ -126,7 +159,12 @@ const SARAH_SYNTHESIS: SynthesisResult = {
     'Skill atrophy concern persists even among enthusiastic adopters',
     'Professional identity is shifting from "doer" to "strategic thinker"'
   ],
-  bottomLine: 'Sarah represents the enthusiastic AI adopter who has successfully reframed AI tools as capability amplifiers, enabling a shift toward more strategic work. However, beneath the enthusiasm lies nuanced concerns about skill maintenance and team dynamics.'
+  bottomLine: 'Sarah represents the enthusiastic AI adopter who has successfully reframed AI tools as capability amplifiers, enabling a shift toward more strategic work. However, beneath the enthusiasm lies nuanced concerns about skill maintenance and team dynamics.',
+  surprisingMoments: [
+    'Unprompted, she described AI as "a really well-read assistant who never gets tired of my questions" — a metaphor she landed on without being asked to characterize the relationship',
+    'She brought up speed differential as a social problem ("careful not to make them feel slow") — the questions never asked about coworker pace or status'
+  ],
+  originalQuestion: DEMO_ORIGINAL_QUESTION
 };
 
 const SARAH_BEHAVIOR: BehaviorData = {
@@ -227,7 +265,12 @@ const MARCUS_SYNTHESIS: SynthesisResult = {
     'AI tools may reduce emotional attachment to individual designs, enabling better collaboration',
     'Senior professionals face identity crisis when craft skills become automated'
   ],
-  bottomLine: 'Marcus represents the converted skeptic who found peace by reframing his value from execution to judgment. His journey suggests that direct experience, combined with new mental models, can transform AI resistance into productive adoption.'
+  bottomLine: 'Marcus represents the converted skeptic who found peace by reframing his value from execution to judgment. His journey suggests that direct experience, combined with new mental models, can transform AI resistance into productive adoption.',
+  surprisingMoments: [
+    'He volunteered the "fast sketch artist who has no taste" metaphor without being asked to define his role — a self-generated frame that resolved his earlier threat response',
+    'He noted that AI reduced "preciousness" about individual designs, which made stakeholder collaboration easier — a second-order effect on team dynamics he wasn\'t prompted to consider'
+  ],
+  originalQuestion: DEMO_ORIGINAL_QUESTION
 };
 
 const MARCUS_BEHAVIOR: BehaviorData = {
@@ -329,7 +372,12 @@ const PRIYA_SYNTHESIS: SynthesisResult = {
     'Organizational cultures can simultaneously mandate and stigmatize AI use',
     'Future clarity about human value may come from external pressure (disclosure requirements)'
   ],
-  bottomLine: 'Priya represents the ethically conflicted adopter who uses AI extensively while harboring real concerns about authenticity and disclosure. Her experience highlights how AI efficiency can hollow out creative satisfaction even while boosting productivity.'
+  bottomLine: 'Priya represents the ethically conflicted adopter who uses AI extensively while harboring real concerns about authenticity and disclosure. Her experience highlights how AI efficiency can hollow out creative satisfaction even while boosting productivity.',
+  surprisingMoments: [
+    'She raised the gap between official policy ("management explicitly encourages it") and lived team experience ("unspoken sense of shame") — an organizational dynamic the questions didn\'t probe',
+    'Unprompted, she framed reader trust and disclosure as the core unresolved question, not productivity — moving the interview into ethics rather than workflow'
+  ],
+  originalQuestion: DEMO_ORIGINAL_QUESTION
 };
 
 const PRIYA_BEHAVIOR: BehaviorData = {
@@ -440,7 +488,128 @@ export const DEMO_AGGREGATE_SYNTHESIS: AggregateSynthesisResult = {
     'Industry-specific ethical frameworks for AI use may be needed, especially in creative/media fields'
   ],
   bottomLine: 'Across three knowledge workers in different fields, AI adoption emerges as fundamentally an identity challenge rather than a skills challenge. All participants successfully use AI tools, but their deeper work involves redefining professional value and navigating social and ethical complexities. The enthusiastic (Sarah), converted skeptic (Marcus), and ethically conflicted (Priya) represent different positions on a shared journey of professional redefinition in the AI age.',
-  generatedAt: Date.now() - 1 * 24 * 60 * 60 * 1000
+  generatedAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
+
+  // ============================================
+  // v2 (Heard) — question-echo synthesis fields
+  // ============================================
+  originalQuestion: DEMO_ORIGINAL_QUESTION,
+  theAnswer:
+    `Knowledge workers are not debating whether to use AI — they're using it daily and renegotiating who they are because of it. The shift is from execution to judgment: PMs feel "promoted without changing jobs," designers say "I provide the taste," writers move "from writing to editing." Underneath the productivity gains, every participant is privately working through the same three questions: am I losing skills, how do I act around colleagues who use it differently, and what part of this work is still mine.`,
+  evidence: [
+    {
+      quote: "It's like I got promoted without changing jobs.",
+      interviewId: 'interview-demo-sarah',
+      attribution: 'Sarah, Product Manager (fintech)'
+    },
+    {
+      quote: "With Claude it's more like... a really well-read assistant who never gets tired of my questions. It surfaces things I might miss, but I'm still the one making judgment calls.",
+      interviewId: 'interview-demo-sarah',
+      attribution: 'Sarah, Product Manager (fintech)'
+    },
+    {
+      quote: "I have to be careful not to make them feel slow.",
+      interviewId: 'interview-demo-sarah',
+      attribution: 'Sarah, Product Manager (fintech)'
+    },
+    {
+      quote: "The AI can generate variations infinitely, but it can't tell which one actually solves the user's problem. That's still me. It's like having an incredibly fast sketch artist who has no taste — I provide the taste.",
+      interviewId: 'interview-demo-marcus',
+      attribution: 'Marcus, Senior UX Designer (enterprise SaaS)'
+    },
+    {
+      quote: "I didn't spend 15 years mastering Photoshop to have a machine do it.",
+      interviewId: 'interview-demo-marcus',
+      attribution: "Marcus's senior colleague (reported)"
+    },
+    {
+      quote: "My job has shifted from writing to editing and refining.",
+      interviewId: 'interview-demo-priya',
+      attribution: 'Priya, Content Manager (digital media)'
+    },
+    {
+      quote: "Efficient but sometimes feels hollow.",
+      interviewId: 'interview-demo-priya',
+      attribution: 'Priya, Content Manager (digital media)'
+    },
+    {
+      quote: "Everyone uses AI, but there's this unspoken sense of... shame? Like it's a dirty secret. Which is weird because management explicitly encourages it for efficiency.",
+      interviewId: 'interview-demo-priya',
+      attribution: 'Priya, Content Manager (digital media)'
+    }
+  ],
+  perQuestionAnswers: [
+    {
+      question: 'Tell me about a recent project where you used AI tools. What was your experience like?',
+      answer:
+        `AI is now woven into daily work, not reserved for special projects. Sarah used Claude across a 200-feedback synthesis and product spec ("3-4 days became 8 hours"). Marcus generated 100 visual directions in an hour for ideation. Priya gets first drafts in minutes from research + style guide. The pattern: AI compresses production time, and the human time gets reallocated to judgment and editing.`,
+      supportingQuotes: [
+        { quote: "What used to take me 3-4 days took maybe 8 hours.", interviewId: 'interview-demo-sarah' },
+        { quote: "In one session I generated probably 100 visual directions in an hour. Normally that would take days of sketching.", interviewId: 'interview-demo-marcus' },
+        { quote: "I'll take a topic, feed in research materials and our style guide, and get a draft back in minutes instead of hours.", interviewId: 'interview-demo-priya' }
+      ]
+    },
+    {
+      question: 'How has your daily work routine changed since you started using AI assistants?',
+      answer:
+        `The work hasn't sped up so much as restructured. Routine processing (tickets, summaries, drafts, sketches) collapsed; strategic and editorial time expanded. All three describe a shift from doing the work to directing it. Sarah explicitly names this as a status change ("got promoted"); Priya names it as a loss ("more time fixing AI prose than crafting my own").`,
+      supportingQuotes: [
+        { quote: "I spend way more time on strategy now.", interviewId: 'interview-demo-sarah' },
+        { quote: "I iterate much faster now. Where I used to bring 3 concepts to a stakeholder meeting, I can bring 15.", interviewId: 'interview-demo-marcus' },
+        { quote: "I spend more time fixing AI prose than crafting my own.", interviewId: 'interview-demo-priya' }
+      ]
+    },
+    {
+      question: 'What aspects of your work do you feel AI handles well, and what do you prefer to do yourself?',
+      answer:
+        "Each participant has independently arrived at a version of the same split: AI handles breadth, generation, and first-pass production; humans hold judgment, taste, and meaning. The line is consistent across roles, even when the vocabulary differs.",
+      supportingQuotes: [
+        { quote: "It surfaces things I might miss, but I'm still the one making judgment calls.", interviewId: 'interview-demo-sarah' },
+        { quote: "I provide the taste.", interviewId: 'interview-demo-marcus' },
+        { quote: "The investigative pieces, the deeply human stories, the original perspectives — that's what I want to focus on.", interviewId: 'interview-demo-priya' }
+      ]
+    },
+    {
+      question: 'Have your colleagues or team adopted AI tools differently than you? How does that affect collaboration?',
+      answer:
+        "Adoption is uneven inside every team, and the unevenness is now itself a workplace dynamic. Sarah manages her speed so peers don't feel slow. Marcus sees a generational split (juniors embrace, seniors resist). Priya describes a culture where management mandates use but the team carries quiet shame about it. The social and political layer of AI use is real and largely unspoken.",
+      supportingQuotes: [
+        { quote: "I have to be careful not to make them feel slow.", interviewId: 'interview-demo-sarah' },
+        { quote: "Junior designers love it... senior peers are really resistant.", interviewId: 'interview-demo-marcus' },
+        { quote: "There's this unspoken sense of shame. Which is weird because management explicitly encourages it.", interviewId: 'interview-demo-priya' }
+      ]
+    },
+    {
+      question: 'Looking ahead, how do you see your professional role evolving alongside AI capabilities?',
+      answer:
+        `All three describe their future role as more curatorial and less hands-on. The vocabulary varies — "mini-CEO," "creative director," focusing on "investigative pieces" — but the structure is the same: AI absorbs execution, humans climb up the value chain or get squeezed out. None see this as optional.`,
+      supportingQuotes: [
+        { quote: "PMs who embrace AI will become more like mini-CEOs.", interviewId: 'interview-demo-sarah' },
+        { quote: "Designers become more like creative directors. Less hands-on-tools, more guiding and curating.", interviewId: 'interview-demo-marcus' },
+        { quote: "Disclosure is coming whether we like it or not. Readers will demand it.", interviewId: 'interview-demo-priya' }
+      ]
+    }
+  ],
+  surprises: [
+    {
+      topic: 'AI use as a quiet social problem inside teams',
+      frequency: 3,
+      exampleQuote: "I have to be careful not to make them feel slow."
+    },
+    {
+      topic: 'Skill atrophy anxiety, even among enthusiasts',
+      frequency: 3,
+      exampleQuote: "My writing used to be really sharp because I did so much of it. Now when I write something from scratch it feels... rustier."
+    },
+    {
+      topic: 'Gap between official AI encouragement and unspoken team shame',
+      frequency: 1,
+      exampleQuote: "Management explicitly encourages it for efficiency. But old journalistic values die hard."
+    }
+  ],
+  confidence: 'medium',
+  confidenceReason:
+    `Three interviews across three professions converge cleanly on the same execution-to-judgment shift, which is a strong signal. But N=3 is small, the sample skews toward people already comfortable with AI (no resisters interviewed directly), and industry coverage is narrow (fintech, enterprise SaaS, media). The pattern is real; the magnitude and edge cases need a larger and more diverse sample to claim 'high.'`
 };
 
 // ============================================

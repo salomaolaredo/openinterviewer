@@ -163,7 +163,7 @@ const StudyList: React.FC = () => {
 
             <div className="flex gap-3">
               <button
-                onClick={() => router.push('/setup')}
+                onClick={() => router.push('/new')}
                 className="px-4 py-2 text-sm bg-stone-600 hover:bg-stone-500 text-white rounded-xl transition-colors flex items-center gap-2"
               >
                 <Plus size={16} />
@@ -215,10 +215,10 @@ const StudyList: React.FC = () => {
           >
             <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <h4 className="font-medium text-amber-300 mb-1">Storage Not Configured</h4>
+              <h4 className="font-medium text-amber-300 mb-1">Database Not Reachable</h4>
               <p className="text-sm text-amber-400/80">{kvWarning}</p>
               <p className="text-sm text-amber-400/60 mt-2">
-                See the README for setup instructions using Vercel KV (Upstash Redis).
+                Check that PostgreSQL is running and <code>DATABASE_URL</code> is set in <code>.env.local</code>.
               </p>
             </div>
           </motion.div>
@@ -272,7 +272,7 @@ const StudyList: React.FC = () => {
             </p>
             <div className="flex items-center justify-center gap-4">
               <button
-                onClick={() => router.push('/setup')}
+                onClick={() => router.push('/new')}
                 className="px-6 py-3 bg-stone-600 hover:bg-stone-500 text-white rounded-xl transition-colors flex items-center gap-2"
               >
                 <Plus size={18} />

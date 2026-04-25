@@ -140,7 +140,7 @@ const Dashboard: React.FC = () => {
                 My Studies
               </button>
               <button
-                onClick={() => router.push('/setup')}
+                onClick={() => router.push('/new')}
                 className="px-4 py-2 text-sm bg-stone-700 hover:bg-stone-600 text-stone-300 rounded-xl transition-colors flex items-center gap-2"
               >
                 <ArrowLeft size={16} />
@@ -232,7 +232,7 @@ const Dashboard: React.FC = () => {
               Completed interviews will appear here. Share participant links to start collecting data.
             </p>
             <button
-              onClick={() => router.push('/setup')}
+              onClick={() => router.push('/new')}
               className="px-6 py-3 bg-stone-600 hover:bg-stone-500 text-white rounded-xl transition-colors"
             >
               Create Study Link

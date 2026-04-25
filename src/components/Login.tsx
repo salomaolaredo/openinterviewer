@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock, Loader2, AlertCircle } from 'lucide-react';
-import OAuthLogin from './OAuthLogin';
 
 const Login: React.FC = () => {
   const router = useRouter();
@@ -12,31 +11,6 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<'standalone' | 'hosted' | null>(null);
-
-  // Check deployment mode
-  useEffect(() => {
-    fetch('/api/config/mode')
-      .then(res => res.json())
-      .then(data => setMode(data.mode))
-      .catch(() => setMode('standalone'));
-  }, []);
-
-  // Check for OAuth error in URL params
-  useEffect(() => {
-    const oauthError = searchParams.get('error');
-    if (oauthError) {
-      const errorMessages: Record<string, string> = {
-        oauth_init_failed: 'Failed to start sign-in. Please try again.',
-        oauth_failed: 'Sign-in failed. Please try again.',
-        missing_params: 'Invalid callback. Please try again.',
-        invalid_state: 'Session expired. Please try again.',
-        user_fetch_failed: 'Failed to get your profile. Please try again.',
-        no_email: 'Could not get your email. Make sure your GitHub email is verified.',
-      };
-      setError(errorMessages[oauthError] || 'Sign-in failed. Please try again.');
-    }
-  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,15 +44,6 @@ const Login: React.FC = () => {
     }
   };
 
-  // Loading state while checking mode
-  if (mode === null) {
-    return (
-      <div className="min-h-screen bg-stone-900 flex items-center justify-center">
-        <Loader2 size={24} className="animate-spin text-stone-400" />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-stone-900 flex items-center justify-center p-8">
       <motion.div
@@ -91,12 +56,9 @@ const Login: React.FC = () => {
             <div className="w-12 h-12 rounded-full bg-stone-700 flex items-center justify-center mx-auto mb-4">
               <Lock size={24} className="text-stone-300" />
             </div>
-            <h1 className="text-xl font-bold text-white">Researcher Login</h1>
+            <h1 className="text-xl font-bold text-white">Heard</h1>
             <p className="text-stone-400 text-sm mt-1">
-              {mode === 'hosted'
-                ? 'Sign in to access your research dashboard'
-                : 'Enter your admin password to access the dashboard'
-              }
+              Enter your password to continue
             </p>
           </div>
 
@@ -107,50 +69,34 @@ const Login: React.FC = () => {
             </div>
           )}
 
-          {mode === 'hosted' ? (
-            <OAuthLogin loading={loading} />
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-stone-300 mb-1">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter admin password"
-                  className="w-full px-4 py-3 rounded-xl bg-stone-800 border border-stone-600 text-stone-100 placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-500 focus:border-stone-500"
-                  autoFocus
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                className="w-full px-4 py-3 rounded-xl bg-stone-800 border border-stone-600 text-stone-100 placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-500 focus:border-stone-500"
+                autoFocus
+              />
+            </div>
 
-              <button
-                type="submit"
-                disabled={!password.trim() || loading}
-                className="w-full py-3 bg-stone-600 hover:bg-stone-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    Logging in...
-                  </>
-                ) : (
-                  'Login'
-                )}
-              </button>
-            </form>
-          )}
-
-          <div className="mt-6 pt-6 border-t border-stone-700 text-center">
             <button
-              onClick={() => router.push('/setup')}
-              className="text-sm text-stone-400 hover:text-stone-300 transition-colors"
+              type="submit"
+              disabled={!password.trim() || loading}
+              className="w-full py-3 bg-stone-600 hover:bg-stone-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
             >
-              Back to Study Setup
+              {loading ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Logging in...
+                </>
+              ) : (
+                'Continue'
+              )}
             </button>
-          </div>
+          </form>
         </div>
       </motion.div>
     </div>

@@ -40,6 +40,14 @@ export const studies = pgTable(
     configVersion: integer('config_version').notNull().default(1),
     isLocked: boolean('is_locked').notNull().default(false),
     interviewCount: integer('interview_count').notNull().default(0),
+    // v2 (Heard): the researcher's original natural-language goal that
+    // produced this study via the conversational creator. Echoed back as
+    // the synthesis report opener.
+    originalQuestion: text('original_question'),
+    // v2 (Heard): full chat thread between researcher and the Question Maker
+    // when the study was created. Used by the Listener and Synthesizer for
+    // intent context. Shape: [{role: 'user'|'assistant', content, timestamp}]
+    creationThread: jsonb('creation_thread').$type<Array<{role: 'user'|'assistant'; content: string; timestamp: number}>>(),
     // Aggregate synthesis result (null until first run). Stored here instead of a
     // separate table — runs ~once per study and avoids a FK lookup on dashboard loads.
     aggregateSynthesis: jsonb('aggregate_synthesis').$type<AggregateSynthesisResult>(),

@@ -15,7 +15,12 @@ import {
 } from '@/lib/kv';
 import { db, schema } from '@/lib/db/client';
 import { eq } from 'drizzle-orm';
-import { DEMO_STUDIES, DEMO_INTERVIEWS } from '@/lib/demoData';
+import {
+  DEMO_STUDIES,
+  DEMO_INTERVIEWS,
+  DEMO_ORIGINAL_QUESTION,
+  DEMO_CREATION_THREAD,
+} from '@/lib/demoData';
 
 export async function POST() {
   try {
@@ -47,6 +52,22 @@ export async function POST() {
     for (const study of DEMO_STUDIES) {
       const success = await saveStudy(study);
       if (success) studiesSeeded++;
+
+      // v2 (Heard): saveStudy doesn't know about original_question /
+      // creation_thread. Write those columns directly so the demo study
+      // matches what the conversational creator would produce.
+      try {
+        await db
+          .update(schema.studies)
+          .set({
+            originalQuestion: DEMO_ORIGINAL_QUESTION,
+            creationThread: DEMO_CREATION_THREAD,
+          })
+          .where(eq(schema.studies.id, study.id));
+      } catch (err) {
+        console.error('Failed to write v2 columns for demo study:', study.id, err);
+        // Non-fatal: study is already saved. Log and continue.
+      }
     }
 
     // Seed interviews

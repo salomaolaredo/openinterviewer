@@ -142,6 +142,12 @@ export interface SynthesisResult {
   contradictions: string[];
   keyInsights: string[];
   bottomLine: string;
+  // v2 (Heard) additions — optional so existing data and UI keep working.
+  // Topics the participant raised that the questions didn't ask about.
+  surprisingMoments?: string[];
+  // The original researcher question, echoed for context. Used by the
+  // per-interview synthesizer when framing this interview's contribution.
+  originalQuestion?: string;
 }
 
 // ============================================
@@ -219,6 +225,11 @@ export interface StoredStudy {
   updatedAt: number;
   interviewCount: number;        // Cached count for dashboard display
   isLocked: boolean;             // True after first interview collected
+  // v2 (Heard) — populated by the conversational study creator. Optional/nullable
+  // so v1 paths and demo data still load without these.
+  originalQuestion?: string | null;
+  creationThread?: Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }> | null;
+  aggregateSynthesis?: AggregateSynthesisResult | null;
 }
 
 // ============================================
@@ -228,10 +239,51 @@ export interface StoredStudy {
 export interface AggregateSynthesisResult {
   studyId: string;
   interviewCount: number;
+  // v1 fields — kept required so existing callers (followup generation, dashboard)
+  // don't break. The v2 prompt is responsible for populating them alongside the
+  // new v2 fields below.
   commonThemes: { theme: string; frequency: number; representativeQuotes: string[] }[];
   divergentViews: { topic: string; viewA: string; viewB: string }[];
   keyFindings: string[];
   researchImplications: string[];
   bottomLine: string;           // One-paragraph summary of all interviews
   generatedAt: number;
+
+  // ============================================
+  // v2 (Heard) — question-echo synthesis shape
+  // ============================================
+  // The researcher's natural-language goal, echoed verbatim as the report opener.
+  originalQuestion?: string;
+  // 2-3 sentences directly answering the original question.
+  theAnswer?: string;
+  // 5-10 verbatim quotes pulled from interview transcripts.
+  evidence?: AggregateEvidenceQuote[];
+  // For each question the researcher asked, a synthesized answer + quotes.
+  perQuestionAnswers?: AggregatePerQuestionAnswer[];
+  // Topics respondents kept raising that weren't asked about.
+  surprises?: AggregateSurprise[];
+  // Confidence in the answer given the evidence.
+  confidence?: 'high' | 'medium' | 'low';
+  confidenceReason?: string;
+}
+
+export interface AggregateEvidenceQuote {
+  quote: string;
+  interviewId: string;
+  turnId?: number;
+  // Short label like "Interview 3" or a participant pseudonym.
+  attribution: string;
+}
+
+export interface AggregatePerQuestionAnswer {
+  question: string;
+  answer: string;
+  supportingQuotes: { quote: string; interviewId: string; turnId?: number }[];
+}
+
+export interface AggregateSurprise {
+  topic: string;
+  // How many interviews raised this unprompted.
+  frequency: number;
+  exampleQuote: string;
 }
