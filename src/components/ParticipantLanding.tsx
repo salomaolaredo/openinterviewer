@@ -52,8 +52,8 @@ const ParticipantLanding: React.FC<ParticipantLandingProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-stone-900 text-stone-100 flex items-center justify-center px-6 py-12 relative overflow-hidden">
-      {/* Slow breath-rhythm gradient. Sits behind everything, signals
+    <main className="heard-surface min-h-screen flex items-center justify-center px-6 py-12 relative overflow-hidden">
+      {/* Slow breath-rhythm warm glow. Sits behind everything, signals
           "conversation, not form." */}
       <motion.div
         aria-hidden
@@ -66,7 +66,7 @@ const ParticipantLanding: React.FC<ParticipantLandingProps> = ({
           className="w-[600px] h-[600px] max-w-[90vw] max-h-[90vw] rounded-full blur-3xl"
           style={{
             background:
-              'radial-gradient(circle, rgba(120,113,108,0.35) 0%, rgba(68,64,60,0.18) 45%, transparent 75%)',
+              'radial-gradient(circle, rgba(139,107,79,0.18) 0%, rgba(139,107,79,0.08) 45%, transparent 75%)',
           }}
         />
       </motion.div>
@@ -75,12 +75,8 @@ const ParticipantLanding: React.FC<ParticipantLandingProps> = ({
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="relative w-full max-w-[480px] flex flex-col items-center text-center"
+        className="relative w-full max-w-[520px] flex flex-col items-center text-center"
       >
-        {/* Optional brand logo. Plain <img> on purpose: this is sometimes
-            an arbitrary external URL and we don't want to maintain an
-            allowlist in next.config.js. Phase 3 will replace this with a
-            proper upload pipeline. */}
         {brandLogoUrl && (
           <div className="mb-10">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -92,56 +88,69 @@ const ParticipantLanding: React.FC<ParticipantLandingProps> = ({
           </div>
         )}
 
-        {/* Brand line with a subtle pulsing dot to its left. Dot reads as a
-            living conversation indicator without being noisy. */}
-        <div className="flex items-center gap-3 mb-8">
+        {/* Brand line — Fraunces serif, larger, restrained motion dot. */}
+        <div className="flex items-center gap-3 mb-10">
           <motion.span
             aria-hidden
-            className="w-2 h-2 rounded-full bg-stone-300"
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: 'var(--accent)' }}
             animate={{ opacity: [0.4, 1, 0.4], scale: [0.9, 1.05, 0.9] }}
             transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
           />
-          <h1 className="text-2xl sm:text-3xl font-medium tracking-tight text-stone-50 leading-snug">
+          <h1
+            className="heard-ai"
+            style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', lineHeight: 1.3 }}
+          >
             {displayBrand} {brandName ? 'is' : 'are'} asking for your perspective.
           </h1>
         </div>
 
-        {/* Three-line framing. Time + anonymity + exit clause, the three
-            biggest objections answered upfront before they arise. */}
-        <div className="text-stone-400 text-base sm:text-[17px] leading-relaxed space-y-1 mb-10">
-          <p>About 5 minutes.</p>
-          <p>Anonymous unless you say your name.</p>
-          <p>You can stop anytime.</p>
+        <div
+          className="text-base leading-relaxed space-y-1 mb-12"
+          style={{ color: 'var(--ink-muted)' }}
+        >
+          <p>about five minutes.</p>
+          <p>anonymous unless you say your name.</p>
+          <p>you can stop anytime.</p>
         </div>
 
-        {/* Study name as quiet subtext, only when present and short enough
-            to feel like context, not a header. */}
         {studyConfig.name && (
-          <p className="text-stone-500 text-sm mb-10 max-w-sm">
-            About: {studyConfig.name}
+          <p
+            className="text-sm mb-10 max-w-sm"
+            style={{ color: 'var(--ink-muted)', fontStyle: 'italic' }}
+          >
+            on: {studyConfig.name}
           </p>
         )}
 
         <button
           onClick={handleStart}
           disabled={starting}
-          className="w-full py-4 rounded-full bg-stone-100 text-stone-900 font-medium text-base hover:bg-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="px-12 py-3 rounded-full font-medium text-sm tracking-wide transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:translate-y-[-1px]"
+          style={{
+            background: 'var(--ink-primary)',
+            color: 'var(--paper-bg)',
+            letterSpacing: '0.05em',
+          }}
         >
           {starting ? (
             <>
-              <Loader2 size={18} className="animate-spin" />
-              Starting
+              <Loader2 size={16} className="animate-spin" />
+              starting
             </>
           ) : (
-            'Start'
+            'begin'
           )}
         </button>
 
-        <p className="mt-12 text-stone-600 text-xs tracking-wide">
-          Powered by Heard
+        <p
+          className="mt-16 text-[10px] tracking-[0.25em] uppercase"
+          style={{ color: 'var(--ink-faint)' }}
+        >
+          powered by heard
         </p>
       </motion.div>
-    </div>
+    </main>
   );
 };
 
