@@ -5,7 +5,7 @@ import * as jose from 'jose';
 const SESSION_COOKIE_NAME = 'research-auth';
 
 // Routes that require authentication
-const protectedRoutes = ['/dashboard', '/studies', '/onboarding', '/settings'];
+const protectedRoutes = ['/dashboard', '/studies', '/setup', '/settings'];
 
 // Verify session token in edge middleware
 async function verifySession(token: string): Promise<{ valid: boolean; researcherId?: string }> {

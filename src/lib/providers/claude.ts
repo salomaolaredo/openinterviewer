@@ -133,15 +133,28 @@ export class ClaudeProvider implements AIProvider {
     }));
 
     try {
-      const thinkingConfig = this.getInterviewThinking(studyConfig.enableReasoning);
+      // NOTE: Anthropic API rejects combining `thinking` with a forced
+      // `tool_choice` ("Thinking may not be enabled when tool_choice forces
+      // tool use"). The interview turn requires the tool, so thinking must
+      // be off for live conversation. We keep thinking for synthesis (no
+      // forced tool there).
+      // Cache the system prompt — it's stable across all interviews in a study,
+      // so cache hits cost 10% of base input tokens. Per Anthropic's prompt caching
+      // docs, this needs to be a structured system block with cache_control.
+      const systemBlock = systemPrompt + '\n\nYou MUST use the interview_response tool to provide your response.';
       const response = await this.client.messages.create({
         model: this.model,
-        max_tokens: thinkingConfig ? THINKING_BUDGET + 2048 : 1024,  // Increase max_tokens if thinking enabled
-        ...(thinkingConfig && { thinking: thinkingConfig }),
-        system: systemPrompt + '\n\nYou MUST use the interview_response tool to provide your response.',
+        max_tokens: 1024,
+        system: [
+          {
+            type: 'text',
+            text: systemBlock,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
         tools: [interviewResponseTool],
         tool_choice: { type: 'tool', name: 'interview_response' },
-        messages
+        messages,
       });
 
       // Extract tool use result
@@ -241,11 +254,11 @@ export class ClaudeProvider implements AIProvider {
       '\n\nUse the synthesis_result tool to provide your analysis.';
 
     try {
-      const thinkingConfig = this.getSynthesisThinking(studyConfig.enableReasoning);
+      // Anthropic rejects `thinking` when `tool_choice` forces a structured
+      // tool. Keep the forced tool because the UI/storage expects this schema.
       const response = await this.client.messages.create({
         model: CLAUDE_SYNTHESIS_MODEL,  // Auto-upgrade to best model for reasoning
-        max_tokens: thinkingConfig ? THINKING_BUDGET + 4096 : 2048,  // Increase for thinking
-        ...(thinkingConfig && { thinking: thinkingConfig }),
+        max_tokens: 4096,
         tools: [synthesisTool],
         tool_choice: { type: 'tool', name: 'synthesis_result' },
         messages: [{ role: 'user', content: prompt }]
@@ -269,13 +282,78 @@ export class ClaudeProvider implements AIProvider {
     syntheses: SynthesisResult[],
     interviewCount: number
   ) {
-    // Define tool for structured aggregate synthesis
+    // Define tool for structured aggregate synthesis (Heard v2 schema)
     const aggregateTool: Anthropic.Tool = {
       name: 'aggregate_synthesis_result',
-      description: 'Generate a structured aggregate synthesis across multiple interviews',
+      description: 'Generate a structured aggregate synthesis across multiple interviews. The output ECHOES the researcher\'s original question first, then answers it directly with evidence.',
       input_schema: {
         type: 'object',
         properties: {
+          // v2 (Heard) — the killer fields
+          originalQuestion: {
+            type: 'string',
+            description: 'Echo the researcher\'s original question verbatim, exactly as they wrote it.'
+          },
+          theAnswer: {
+            type: 'string',
+            description: '2-3 sentences directly answering the original question, grounded in what respondents said.'
+          },
+          evidence: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                quote: { type: 'string' },
+                interviewId: { type: 'string' },
+                attribution: { type: 'string', description: 'Brief context: who said it (anonymized) or which interview' }
+              },
+              required: ['quote', 'attribution']
+            },
+            description: '5-10 verbatim quotes that prove theAnswer. Each tied to an interview.'
+          },
+          perQuestionAnswers: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                question: { type: 'string' },
+                answer: { type: 'string' },
+                supportingQuotes: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: { quote: { type: 'string' }, interviewId: { type: 'string' } },
+                    required: ['quote']
+                  }
+                }
+              },
+              required: ['question', 'answer']
+            },
+            description: 'For each of the study\'s core questions, what did respondents collectively say?'
+          },
+          surprises: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                topic: { type: 'string' },
+                frequency: { type: 'number' },
+                exampleQuote: { type: 'string' }
+              },
+              required: ['topic', 'frequency']
+            },
+            description: 'Topics respondents kept raising that the questions did NOT ask about. The "you should have asked" list.'
+          },
+          confidence: {
+            type: 'string',
+            enum: ['high', 'medium', 'low'],
+            description: 'How confident is this answer given the sample?'
+          },
+          confidenceReason: {
+            type: 'string',
+            description: 'Brief reason for the confidence level (sample size, consistency, etc.)'
+          },
+          // v1 (legacy) — kept for backward compat with existing UI/code paths
           commonThemes: {
             type: 'array',
             items: {
@@ -283,14 +361,10 @@ export class ClaudeProvider implements AIProvider {
               properties: {
                 theme: { type: 'string' },
                 frequency: { type: 'number' },
-                representativeQuotes: {
-                  type: 'array',
-                  items: { type: 'string' }
-                }
+                representativeQuotes: { type: 'array', items: { type: 'string' } }
               },
               required: ['theme', 'frequency', 'representativeQuotes']
-            },
-            description: 'Patterns appearing across multiple interviews'
+            }
           },
           divergentViews: {
             type: 'array',
@@ -302,25 +376,32 @@ export class ClaudeProvider implements AIProvider {
                 viewB: { type: 'string' }
               },
               required: ['topic', 'viewA', 'viewB']
-            },
-            description: 'Areas where participants had different perspectives'
+            }
           },
           keyFindings: {
             type: 'array',
-            items: { type: 'string' },
-            description: 'Major discoveries that answer the research question'
+            items: { type: 'string' }
           },
           researchImplications: {
             type: 'array',
-            items: { type: 'string' },
-            description: 'What these findings mean for the field/practice'
+            items: { type: 'string' }
           },
           bottomLine: {
             type: 'string',
-            description: 'One paragraph summarizing key takeaways from all interviews'
+            description: 'One paragraph summarizing key takeaways. Same as theAnswer but slightly longer.'
           }
         },
-        required: ['commonThemes', 'keyFindings', 'bottomLine']
+        required: [
+          'originalQuestion',
+          'theAnswer',
+          'evidence',
+          'perQuestionAnswers',
+          'surprises',
+          'confidence',
+          'commonThemes',
+          'keyFindings',
+          'bottomLine'
+        ]
       }
     };
 
@@ -328,11 +409,12 @@ export class ClaudeProvider implements AIProvider {
       '\n\nUse the aggregate_synthesis_result tool to provide your analysis.';
 
     try {
-      const thinkingConfig = this.getSynthesisThinking(studyConfig.enableReasoning);
+      // NOTE: Anthropic API rejects `thinking` + forced `tool_choice`. We force
+      // the tool here (we want structured output), so thinking is off. The
+      // synthesis quality comes from the prompt + Sonnet, not from thinking.
       const response = await this.client.messages.create({
         model: CLAUDE_SYNTHESIS_MODEL,  // Auto-upgrade to best model for reasoning
-        max_tokens: thinkingConfig ? THINKING_BUDGET + 8192 : 4096,  // Increase for thinking
-        ...(thinkingConfig && { thinking: thinkingConfig }),
+        max_tokens: 4096,
         tools: [aggregateTool],
         tool_choice: { type: 'tool', name: 'aggregate_synthesis_result' },
         messages: [{ role: 'user', content: prompt }]

@@ -1,120 +1,52 @@
-'use client';
+// Participant entry page. Server component: verifies the JWT token,
+// then hands the validated study config to <ParticipantLanding /> for
+// the branded landing + start-interview flow. Replaces the old
+// consent-then-begin two-screen sequence.
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useStore } from '@/store';
-import { ParticipantToken } from '@/types';
-import Consent from '@/components/Consent';
-import InterviewChat from '@/components/InterviewChat';
-import Synthesis from '@/components/Synthesis';
-import Export from '@/components/Export';
-import { Loader2 } from 'lucide-react';
+import { decodeParticipantTokenString } from '@/lib/auth';
+import ParticipantLanding from '@/components/ParticipantLanding';
 
-export default function ParticipantPage() {
-  const params = useParams();
-  const router = useRouter();
-  const token = params.token as string;
+interface PageProps {
+  params: { token: string };
+}
 
-  const {
-    currentStep,
-    setStep,
-    setStudyConfig,
-    setViewMode,
-    setParticipantToken,
-    studyConfig
-  } = useStore();
+export const dynamic = 'force-dynamic';
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export default async function ParticipantTokenPage({ params }: PageProps) {
+  const { token } = params;
+  const result = await decodeParticipantTokenString(token);
 
-  // Verify token and load study config on mount
-  useEffect(() => {
-    const loadStudyFromToken = async () => {
-      if (!token) {
-        setError('No token provided');
-        setLoading(false);
-        return;
-      }
+  if (!result.valid || !result.payload) {
+    return <InvalidLink reason={result.error} />;
+  }
 
-      try {
-        // Verify and decode the token
-        const response = await fetch(`/api/generate-link?token=${encodeURIComponent(token)}`);
-        const result = await response.json();
+  const { studyConfig } = result.payload;
 
-        if (!result.valid || !result.data) {
-          setError('Invalid or expired link');
-          setLoading(false);
-          return;
-        }
+  // brandName / brandLogoUrl land here in Phase 3 (researcher upload).
+  // For v2 we leave them undefined; ParticipantLanding falls back to "We".
+  return (
+    <ParticipantLanding
+      token={token}
+      studyConfig={studyConfig}
+      brandName={undefined}
+      brandLogoUrl={undefined}
+    />
+  );
+}
 
-        const tokenData = result.data as ParticipantToken;
+function InvalidLink({ reason }: { reason?: 'expired' | 'invalid' | 'misconfigured' }) {
+  const message =
+    reason === 'expired'
+      ? "this link has expired. ask whoever sent it for a fresh one."
+      : reason === 'misconfigured'
+      ? "something's off on our end. try again in a moment."
+      : "this link isn't valid. check with whoever sent it.";
 
-        // Set the study config from token
-        setStudyConfig(tokenData.studyConfig);
-        setParticipantToken(token);
-        setViewMode('participant');
-        setStep('consent');
-        setLoading(false);
-      } catch (err) {
-        console.error('Error loading study from token:', err);
-        setError('Failed to load study configuration');
-        setLoading(false);
-      }
-    };
-
-    loadStudyFromToken();
-  }, [token]);
-
-  // Loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-stone-900 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 size={48} className="animate-spin text-stone-400 mx-auto mb-4" />
-          <p className="text-stone-400">Loading interview...</p>
-        </div>
+  return (
+    <div className="min-h-screen bg-stone-900 text-stone-100 flex items-center justify-center px-6">
+      <div className="max-w-sm text-center">
+        <p className="text-stone-300 text-lg leading-relaxed">{message}</p>
       </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="min-h-screen bg-stone-900 flex items-center justify-center p-8">
-        <div className="max-w-md text-center">
-          <div className="w-16 h-16 rounded-full bg-stone-800 flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">⚠️</span>
-          </div>
-          <h1 className="text-xl font-semibold text-white mb-2">Unable to Load Interview</h1>
-          <p className="text-stone-400 mb-6">{error}</p>
-          <p className="text-stone-500 text-sm">
-            Please check that you have the correct link or contact the researcher.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // No study config loaded
-  if (!studyConfig) {
-    return (
-      <div className="min-h-screen bg-stone-900 flex items-center justify-center">
-        <p className="text-stone-400">Study configuration not found.</p>
-      </div>
-    );
-  }
-
-  // Render the appropriate step
-  switch (currentStep) {
-    case 'consent':
-      return <Consent />;
-    case 'interview':
-      return <InterviewChat />;
-    case 'synthesis':
-      return <Synthesis />;
-    case 'export':
-      return <Export />;
-    default:
-      return <Consent />;
-  }
+    </div>
+  );
 }

@@ -1,19 +1,7 @@
-import { Suspense } from 'react';
-import StudySetup from '@/components/StudySetup';
-import { Loader2 } from 'lucide-react';
+import { redirect } from 'next/navigation';
 
-function SetupLoading() {
-  return (
-    <div className="min-h-screen bg-stone-900 flex items-center justify-center">
-      <Loader2 size={48} className="animate-spin text-stone-400" />
-    </div>
-  );
-}
-
-export default function SetupPage() {
-  return (
-    <Suspense fallback={<SetupLoading />}>
-      <StudySetup />
-    </Suspense>
-  );
+// /setup is the legacy wizard route. Heard v2 uses the conversational creator at /new.
+// Preserved as a redirect so any deep links still resolve.
+export default function SetupRedirect() {
+  redirect('/new');
 }

@@ -13,18 +13,9 @@ import {
   getSessionCookieOptions,
   SESSION_COOKIE_NAME
 } from '@/lib/auth';
-import { isHostedMode } from '@/lib/mode';
 
 export async function POST(request: Request) {
   try {
-    // In hosted mode, password login is disabled — use OAuth
-    if (isHostedMode()) {
-      return NextResponse.json(
-        { error: 'Password login is not available in hosted mode. Use OAuth to sign in.' },
-        { status: 404 }
-      );
-    }
-
     const body = await request.json();
     const { password } = body as { password: string };
 
@@ -90,7 +81,6 @@ export async function GET() {
 
     return NextResponse.json({
       authenticated: session.valid,
-      ...(session.researcherId && { researcherId: session.researcherId }),
     });
   } catch {
     return NextResponse.json({ authenticated: false });

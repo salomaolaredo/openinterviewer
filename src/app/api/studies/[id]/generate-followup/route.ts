@@ -22,7 +22,7 @@ export async function POST(
 
     const { id: studyId } = await params;
 
-    const kvAvailable = await isKVAvailable(context.kvClient);
+    const kvAvailable = await isKVAvailable();
     if (!kvAvailable) {
       return NextResponse.json(
         { error: 'Storage not configured' },
@@ -31,7 +31,7 @@ export async function POST(
     }
 
     // Fetch parent study
-    const parentStudy = await getStudy(studyId, context.kvClient);
+    const parentStudy = await getStudy(studyId);
     if (!parentStudy) {
       return NextResponse.json(
         { error: 'Study not found' },

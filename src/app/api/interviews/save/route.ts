@@ -92,7 +92,7 @@ export async function POST(request: Request) {
     };
 
     // Check if KV is available
-    const kvAvailable = await isKVAvailable(context.kvClient);
+    const kvAvailable = await isKVAvailable();
     if (!kvAvailable) {
       // Return success but with warning
       console.warn('KV not available. Interview not persisted.');
@@ -103,8 +103,8 @@ export async function POST(request: Request) {
       });
     }
 
-    // Save the interview using researcher's KV client
-    const success = await saveInterview(interview, context.kvClient);
+    // Save the interview
+    const success = await saveInterview(interview);
 
     if (!success) {
       return NextResponse.json(
@@ -116,8 +116,8 @@ export async function POST(request: Request) {
     // Update study metadata (increment count and lock if first interview)
     // These operations are non-critical - don't fail the request if they fail
     try {
-      await incrementStudyInterviewCount(interview.studyId, context.kvClient);
-      await lockStudy(interview.studyId, context.kvClient);
+      await incrementStudyInterviewCount(interview.studyId);
+      await lockStudy(interview.studyId);
     } catch (studyUpdateError) {
       // Log but don't fail - study may not exist in KV (legacy/token-only studies)
       console.warn('Failed to update study metadata:', studyUpdateError);

@@ -14,22 +14,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
     }
 
-    const kvAvailable = await isKVAvailable(context.kvClient);
+    const kvAvailable = await isKVAvailable();
     if (!kvAvailable) {
       return NextResponse.json({
         interviews: [],
-        warning: 'Storage not configured. Connect Vercel KV to enable persistence.'
+        warning: 'Storage not configured. Database unreachable.'
       });
     }
 
-    // Check for studyId filter
     const { searchParams } = new URL(request.url);
     const studyId = searchParams.get('studyId');
 
-    // Get interviews (filtered by study or all)
     const interviews = studyId
-      ? await getStudyInterviews(studyId, context.kvClient)
-      : await getAllInterviews(context.kvClient);
+      ? await getStudyInterviews(studyId)
+      : await getAllInterviews();
 
     return NextResponse.json({ interviews });
   } catch (error) {

@@ -75,17 +75,28 @@ const StudyDetail: React.FC<StudyDetailProps> = ({ studyId }) => {
     const newLinksEnabled = !(study.config.linksEnabled ?? true);
     setIsTogglingLinks(true);
 
-    try {
-      const response = await fetch(`/api/studies/${studyId}`, {
+    const submit = async (confirmed: boolean) =>
+      fetch(`/api/studies/${studyId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           config: {
             ...study.config,
-            linksEnabled: newLinksEnabled
-          }
-        })
+            linksEnabled: newLinksEnabled,
+          },
+          ...(confirmed ? { confirmed: true } : {}),
+        }),
       });
+
+    try {
+      let response = await submit(false);
+
+      // Once a study has interviews the API soft-locks edits and returns
+      // 409 with `requiresConfirmation`. Toggling links on/off is reversible,
+      // so auto-confirm and retry rather than blocking the researcher.
+      if (response.status === 409) {
+        response = await submit(true);
+      }
 
       if (!response.ok) {
         throw new Error('Failed to update study');
@@ -96,8 +107,8 @@ const StudyDetail: React.FC<StudyDetailProps> = ({ studyId }) => {
         ...study,
         config: {
           ...study.config,
-          linksEnabled: newLinksEnabled
-        }
+          linksEnabled: newLinksEnabled,
+        },
       });
     } catch (error) {
       console.error('Error toggling links:', error);

@@ -17,10 +17,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error || 'Unauthorized' }, { status: 401 });
     }
 
-    const kvAvailable = await isKVAvailable(context.kvClient);
+    const kvAvailable = await isKVAvailable();
     if (!kvAvailable) {
       return NextResponse.json(
-        { error: 'Storage not configured. Connect Vercel KV to enable this feature.' },
+        { error: 'Storage not configured. Database unreachable.' },
         { status: 503 }
       );
     }
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     }
 
     // Fetch study to get config
-    const study = await getStudy(studyId, context.kvClient);
+    const study = await getStudy(studyId);
     if (!study) {
       return NextResponse.json(
         { error: 'Study not found' },
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     }
 
     // Fetch all interviews for this study
-    const interviews = await getStudyInterviews(studyId, context.kvClient);
+    const interviews = await getStudyInterviews(studyId);
     if (interviews.length < 2) {
       return NextResponse.json(
         { error: 'Need at least 2 interviews to generate aggregate synthesis' },

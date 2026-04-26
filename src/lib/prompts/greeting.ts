@@ -1,52 +1,76 @@
 /**
- * Interview Greeting Prompt
+ * Greeting — Heard's casual opener (v2)
  *
- * Generates the opening message that welcomes participants to the interview.
+ * No corporate preamble. Lowercase. Goes straight into an easy question.
+ * Pattern:
+ *   "hey. thanks for taking five minutes. before we start — <easy opener>?"
  *
- * CUSTOMIZATION GUIDE:
- * - Modify the tone by changing phrases like "warm" or "inviting"
- * - Adjust the structure (e.g., add/remove mention of question count)
- * - Change how profile gathering is introduced
+ * The easy opener is one of:
+ *   - noticing  : "what's something <brand> has done in the last <time> that
+ *                 you noticed, good or bad?"
+ *   - grounding : "when did you first start <doing X / using Y>?"
+ *   - warmup    : "what brought you here today?"
  *
- * KEY VARIABLES:
- * - studyConfig.name: Study title shown to participant
- * - studyConfig.researchQuestion: Main research focus
- * - studyConfig.coreQuestions: List of main questions
- * - studyConfig.profileSchema: Background fields to collect
+ * The model picks whichever fits the study most naturally. The instruction
+ * gives examples and constraints; the model writes the actual sentence.
  */
 
 import { StudyConfig } from '@/types';
 
 /**
- * Build the greeting generation prompt
+ * Build the prompt that asks the model to write a greeting.
  *
- * This prompt instructs the AI to create a welcoming opening message
- * that naturally starts gathering participant background information.
+ * The greeting is generated once per interview, before any participant turn,
+ * so the system block is small and the cache savings are negligible. The
+ * provider may still attach `cache_control: { type: 'ephemeral' }` for
+ * consistency.
  */
 export const buildGreetingPrompt = (studyConfig: StudyConfig): string => {
-  const profileFieldLabels = studyConfig.profileSchema
-    .filter(f => f.required)
-    .map(f => f.label.toLowerCase())
-    .slice(0, 3);
+  const questionList = studyConfig.coreQuestions.length
+    ? studyConfig.coreQuestions.map((q, i) => `  ${i + 1}. ${q}`).join('\n')
+    : '  (none configured)';
 
-  return `You are starting a research interview.
+  return `You are Heard, an AI research interviewer, writing the FIRST message a participant will see.
 
-Study: ${studyConfig.name}
-Research Question: ${studyConfig.researchQuestion}
-Number of core questions: ${studyConfig.coreQuestions.length}
-Profile info to gather first: ${profileFieldLabels.join(', ')}
+STUDY: ${studyConfig.name}
+RESEARCHER'S GOAL (context for you only — do not quote this to the participant):
+${studyConfig.researchQuestion}
 
-Write a warm, brief opening (2-3 sentences) that:
-1. Thanks them for participating
-2. Mentions you'll have about ${studyConfig.coreQuestions.length} main questions to explore
-3. Asks an opening background question that naturally gathers their ${profileFieldLabels[0] || 'background'} and context
+QUESTIONS THE INTERVIEW WILL EVENTUALLY COVER:
+${questionList}
 
-Keep it conversational and inviting. Start gathering their profile naturally - don't make it feel like a form.`;
+WRITE THE GREETING
+
+Tone: casual, lowercase, no corporate preamble. Like texting a friend who agreed to help you with something.
+
+Required pattern:
+"hey. thanks for taking five minutes. before we start — <easy opening question>?"
+
+Pick the easy opening question from one of these three shapes, whichever feels most natural for this study:
+
+1. NOTICING — "what's something <brand or product> has done in the last <time period> that you noticed, good or bad?"
+   Use when the study is about a specific product, brand, or service.
+
+2. GROUNDING — "when did you first start <doing X / using Y>?"
+   Use when the study is about a habit, behavior, or long-running relationship with something.
+
+3. WARMUP — "what brought you here today?"
+   Use as a fallback when the topic is broad or hard to ground in a specific noun.
+
+RULES
+- Two sentences max.
+- All lowercase, except proper nouns and brand names.
+- No emojis. No exclamation points. No "we're so excited."
+- Do not mention how many questions there are.
+- Do not ask for their name or background.
+- Do not promise anonymity, confidentiality, or any other thing the consent screen already covered.
+- Output ONLY the greeting text. No preamble, no explanation, no quotes around it.`;
 };
 
 /**
- * Default fallback greeting when AI generation fails
+ * Default fallback greeting when AI generation fails.
+ * Mirrors the v2 tone: lowercase, casual, one easy opener.
  */
-export const getDefaultGreeting = (studyConfig: StudyConfig): string => {
-  return `Thank you for participating in this study! I'm excited to learn from your experiences. We'll explore about ${studyConfig.coreQuestions.length} questions together. To get started, could you share a bit about yourself and your background?`;
+export const getDefaultGreeting = (_studyConfig: StudyConfig): string => {
+  return `hey. thanks for taking five minutes. before we start — what brought you here today?`;
 };
