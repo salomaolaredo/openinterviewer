@@ -254,11 +254,11 @@ export class ClaudeProvider implements AIProvider {
       '\n\nUse the synthesis_result tool to provide your analysis.';
 
     try {
-      const thinkingConfig = this.getSynthesisThinking(studyConfig.enableReasoning);
+      // Anthropic rejects `thinking` when `tool_choice` forces a structured
+      // tool. Keep the forced tool because the UI/storage expects this schema.
       const response = await this.client.messages.create({
         model: CLAUDE_SYNTHESIS_MODEL,  // Auto-upgrade to best model for reasoning
-        max_tokens: thinkingConfig ? THINKING_BUDGET + 4096 : 2048,  // Increase for thinking
-        ...(thinkingConfig && { thinking: thinkingConfig }),
+        max_tokens: 4096,
         tools: [synthesisTool],
         tool_choice: { type: 'tool', name: 'synthesis_result' },
         messages: [{ role: 'user', content: prompt }]

@@ -10,6 +10,7 @@ import {
 } from '@/services/geminiService';
 import { InterviewMessage } from '@/types';
 import { ArrowRight } from 'lucide-react';
+import ParticipantClosing from './ParticipantClosing';
 
 // Word-by-word reveal for AI questions: each word fades + drifts in
 // over 360ms with a 28ms stagger. Slow enough to read as it appears,
@@ -60,11 +61,24 @@ const InterviewChat: React.FC = () => {
   const [showFinishOption, setShowFinishOption] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [interviewHistory, isAiThinking]);
+
+  // Keep focus in the textarea so the participant can keep typing without
+  // clicking back into the input after every AI reply. Refocus when the AI
+  // finishes thinking (so they can answer immediately) and on mount.
+  useEffect(() => {
+    if (!isAiThinking) {
+      // Tiny delay so the focus lands after the new AI message renders
+      // and the page settles, avoiding a layout-driven scroll jump.
+      const t = setTimeout(() => inputRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+  }, [isAiThinking, interviewHistory.length]);
 
   // Show finish option after background phase
   useEffect(() => {
@@ -96,6 +110,14 @@ const InterviewChat: React.FC = () => {
           // staring at "Thinking..." — surface a fallback so they can proceed.
           throw new Error('Empty greeting response');
         }
+        const latestState = useStore.getState();
+        if (
+          latestState.interviewHistory.length > 0 ||
+          latestState.studyConfig?.id !== studyConfig.id
+        ) {
+          return;
+        }
+
         const msg: InterviewMessage = {
           id: `msg-${Date.now()}`,
           role: 'ai',
@@ -106,13 +128,19 @@ const InterviewChat: React.FC = () => {
       } catch (error) {
         console.error('Error initializing interview:', error);
         // Friendly fallback so the participant can still talk.
-        addMessage({
-          id: `msg-${Date.now()}`,
-          role: 'ai',
-          content:
-            "hey. thanks for taking a few minutes. could you start by telling me a bit about yourself?",
-          timestamp: Date.now(),
-        });
+        const latestState = useStore.getState();
+        if (
+          latestState.interviewHistory.length === 0 &&
+          latestState.studyConfig?.id === studyConfig.id
+        ) {
+          addMessage({
+            id: `msg-${Date.now()}`,
+            role: 'ai',
+            content:
+              "hey. thanks for taking a few minutes. could you start by telling me a bit about yourself?",
+            timestamp: Date.now(),
+          });
+        }
       } finally {
         setAiThinking(false);
       }
@@ -210,11 +238,6 @@ const InterviewChat: React.FC = () => {
     completeInterview();
   };
 
-  const handleViewAnalysis = () => {
-    setStep('synthesis');
-    router.push('/synthesis');
-  };
-
   if (!studyConfig) {
     return (
       <main className="heard-surface min-h-screen flex items-center justify-center">
@@ -232,6 +255,14 @@ const InterviewChat: React.FC = () => {
     ? Math.min(100, Math.round((questionsCompleted / totalQuestions) * 100))
     : 0;
   const brandLine = studyConfig.name?.trim() || 'a brief conversation';
+
+  // Once the participant finishes, hand off entirely to the literary closing
+  // screen. It runs synthesis, saves the interview, and shows the participant
+  // a reflection of what was heard. No chat-with-completion-footer hybrid —
+  // the closing is its own surface.
+  if (isComplete) {
+    return <ParticipantClosing />;
+  }
 
   return (
     <main className="heard-surface flex flex-col h-screen">
@@ -296,33 +327,16 @@ const InterviewChat: React.FC = () => {
         aria-hidden="true"
       />
 
-      {/* Input rail or completion. Borderless. */}
-      {isComplete ? (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          className="px-6 py-12"
-        >
-          <div className="max-w-[640px] mx-auto">
-            <p className="heard-ai" style={{ fontSize: '1.25rem', color: 'var(--ink-soft)' }}>
-              thanks for taking the time. your words have been saved.
-            </p>
-            <button
-              onClick={handleViewAnalysis}
-              className="mt-6 inline-flex items-center gap-2 text-[12px] uppercase tracking-[0.2em] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors"
-            >
-              see what you said <ArrowRight size={14} />
-            </button>
-          </div>
-        </motion.div>
-      ) : (
-        <form
+      {/* Input rail. The completion branch is handled at the top of render
+          — once isComplete is true, ParticipantClosing replaces this surface. */}
+      <form
           onSubmit={(e) => { e.preventDefault(); if (!isAiThinking) handleSend(); }}
           className="px-6 py-6 bg-[var(--paper-bg-soft)]"
         >
           <div className="max-w-[640px] mx-auto flex items-end gap-3">
             <textarea
+              ref={inputRef}
+              autoFocus
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -354,7 +368,6 @@ const InterviewChat: React.FC = () => {
             </button>
           </div>
         </form>
-      )}
     </main>
   );
 };
